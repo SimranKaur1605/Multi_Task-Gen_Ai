@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GenAI Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0a0a0f;
+      --surface:   #111118;
+      --border:    #1e1e2e;
+      --accent:    #c8f04d;
+      --accent2:   #4df0c8;
+      --accent3:   #f04d8a;
+      --text:      #e8e8f0;
+      --muted:     #666680;
+      --radius:    14px;
+    }
+
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; }
+
+    /* ── noise overlay ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+    }
+
+    /* ── grid bg ── */
+    body::after {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background-image: linear-gradient(var(--border) 1px, transparent 1px),
+                        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 48px 48px;
+      opacity: .35;
+      pointer-events: none;
+    }
+
+    #root { position: relative; z-index: 1; min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* ── Header ── */
+    header {
+      padding: 28px 48px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      backdrop-filter: blur(12px);
+      background: rgba(10,10,15,.7);
+      position: sticky; top: 0; z-index: 10;
+    }
+    .logo { font-family: 'Syne', sans-serif; font-size: 1.4rem; font-weight: 800; letter-spacing: -0.5px; }
+    .logo span { color: var(--accent); }
+    .badge {
+      font-family: 'DM Mono', monospace; font-size: .7rem; letter-spacing: .12em;
+      padding: 4px 10px; border: 1px solid var(--border);
+      border-radius: 99px; color: var(--muted);
+    }
+
+    /* ── Main layout ── */
+    main { flex: 1; display: grid; grid-template-columns: 320px 1fr; gap: 0; }
+
+    /* ── Sidebar ── */
+    aside {
+      border-right: 1px solid var(--border);
+      padding: 32px 24px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .section-label {
+      font-family: 'DM Mono', monospace; font-size: .65rem; letter-spacing: .2em;
+      color: var(--muted); text-transform: uppercase; padding: 0 8px 8px;
+    }
+    .task-btn {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 16px; border-radius: var(--radius);
+      border: 1px solid transparent; background: transparent;
+      cursor: pointer; text-align: left; width: 100%;
+      transition: all .2s;
+      color: var(--muted); font-family: 'DM Sans', sans-serif; font-size: .9rem;
+    }
+    .task-btn:hover { background: var(--surface); color: var(--text); border-color: var(--border); }
+    .task-btn.active {
+      background: var(--surface);
+      border-color: var(--accent);
+      color: var(--text);
+    }
+    .task-btn .icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem; flex-shrink: 0;
+    }
+    .task-btn .meta { display: flex; flex-direction: column; gap: 2px; }
+    .task-btn .name { font-weight: 500; }
+    .task-btn .desc { font-size: .75rem; color: var(--muted); }
+
+    /* ── Content panel ── */
+    .panel { padding: 40px 48px; display: flex; flex-direction: column; gap: 24px; max-width: 860px; }
+
+    .panel-title {
+      font-family: 'Syne', sans-serif; font-size: 1.8rem; font-weight: 700;
+      letter-spacing: -0.5px; line-height: 1.2;
+    }
+    .panel-title span { color: var(--accent); }
+
+    /* ── Input fields ── */
+    .field { display: flex; flex-direction: column; gap: 8px; }
+    .field label {
+      font-family: 'DM Mono', monospace; font-size: .7rem; letter-spacing: .15em;
+      text-transform: uppercase; color: var(--muted);
+    }
+    textarea, input[type="text"], input[type="number"] {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); color: var(--text);
+      font-family: 'DM Mono', monospace; font-size: .85rem;
+      padding: 14px 16px; resize: vertical;
+      transition: border-color .2s;
+      outline: none; width: 100%;
+    }
+    textarea:focus, input:focus { border-color: var(--accent); }
+    textarea { min-height: 180px; line-height: 1.6; }
+    input[type="number"] { width: 120px; }
+
+    .row { display: flex; gap: 16px; align-items: flex-end; }
+
+    /* ── Run button ── */
+    .run-btn {
+      display: inline-flex; align-items: center; gap: 10px;
+      padding: 14px 28px; border-radius: var(--radius);
+      background: var(--accent); color: #0a0a0f;
+      font-family: 'Syne', sans-serif; font-weight: 700; font-size: .95rem;
+      border: none; cursor: pointer; letter-spacing: .03em;
+      transition: transform .15s, box-shadow .15s;
+      box-shadow: 0 0 0 0 rgba(200,240,77,0);
+    }
+    .run-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 32px rgba(200,240,77,.25); }
+    .run-btn:active { transform: translateY(0); }
+    .run-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    /* ── Result box ── */
+    .result-wrap {
+      border: 1px solid var(--border); border-radius: var(--radius);
+      background: var(--surface); overflow: hidden;
+      animation: fadeSlide .3s ease;
+    }
+    @keyframes fadeSlide {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .result-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 16px; border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,.02);
+    }
+    .result-label {
+      font-family: 'DM Mono', monospace; font-size: .68rem; letter-spacing: .18em;
+      text-transform: uppercase; color: var(--accent2);
+    }
+    .copy-btn {
+      background: none; border: 1px solid var(--border); border-radius: 6px;
+      color: var(--muted); font-family: 'DM Mono', monospace; font-size: .7rem;
+      padding: 4px 10px; cursor: pointer; transition: all .15s;
+    }
+    .copy-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+    .result-body {
+      padding: 24px; white-space: pre-wrap; font-family: 'DM Mono', monospace;
+      font-size: .82rem; line-height: 1.75; color: var(--text); overflow-x: auto;
+    }
+
+    /* ── Loading spinner ── */
+    .loader {
+      display: flex; align-items: center; gap: 12px;
+      padding: 24px; color: var(--muted);
+      font-family: 'DM Mono', monospace; font-size: .8rem;
+    }
+    .spinner {
+      width: 18px; height: 18px; border: 2px solid var(--border);
+      border-top-color: var(--accent); border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Error ── */
+    .error-box {
+      padding: 16px; border: 1px solid var(--accent3); border-radius: var(--radius);
+      background: rgba(240,77,138,.06); color: var(--accent3);
+      font-family: 'DM Mono', monospace; font-size: .8rem;
+      animation: fadeSlide .2s ease;
+    }
+
+    /* ── Welcome card ── */
+    .welcome {
+      border: 1px dashed var(--border); border-radius: var(--radius);
+      padding: 32px; display: flex; flex-direction: column; gap: 8px; opacity: .6;
+    }
+    .welcome h3 { font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 700; }
+    .welcome p { font-size: .85rem; color: var(--muted); line-height: 1.6; }
+
+    /* ── API URL bar ── */
+    .api-bar {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; border: 1px solid var(--border);
+      border-radius: var(--radius); background: var(--surface);
+      font-family: 'DM Mono', monospace; font-size: .75rem; color: var(--muted);
+    }
+    .api-bar input {
+      flex: 1; background: none; border: none; padding: 0;
+      color: var(--text); font-family: inherit; font-size: inherit; outline: none;
+    }
+    .api-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+
+    @media (max-width: 768px) {
+      main { grid-template-columns: 1fr; }
+      aside { border-right: none; border-bottom: 1px solid var(--border); flex-direction: row; flex-wrap: wrap; padding: 16px; }
+      .panel { padding: 24px 20px; }
+      header { padding: 16px 20px; }
+    }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="module">
+  import { h, render } from 'https://esm.sh/preact@10';
+  import { useState } from 'https://esm.sh/preact@10/hooks';
+  import htm from 'https://esm.sh/htm@3';
+  const html = htm.bind(h);
+
+  const TASKS = [
+    { id:'summarize', name:'Summarize', desc:'Extract key ideas', icon:'📋', color:'#c8f04d', endpoint:'/summarize',
+      fields: [{key:'document', label:'Document / Text', type:'textarea', placeholder:'Paste any document, article, or text…'}],
+      buildBody: (v) => ({ document: v.document }) },
+    { id:'qa', name:'Q & A', desc:'Ask anything', icon:'💬', color:'#4df0c8', endpoint:'/qa',
+      fields: [
+        {key:'document', label:'Context Document', type:'textarea', placeholder:'Paste the reference text…'},
+        {key:'question', label:'Your Question', type:'text',     placeholder:'What would you like to know?'},
+      ],
+      buildBody: (v) => ({ document: v.document, question: v.question }) },
+    { id:'quiz', name:'Quiz', desc:'Generate MCQs', icon:'🧩', color:'#f0c84d', endpoint:'/quiz',
+      fields: [
+        {key:'document',      label:'Source Material', type:'textarea', placeholder:'Paste learning content…'},
+        {key:'num_questions', label:'Number of Questions', type:'number', placeholder:'5'},
+      ],
+      buildBody: (v) => ({ document: v.document, num_questions: parseInt(v.num_questions||5) }) },
+    { id:'study_plan', name:'Study Plan', desc:'Structured schedule', icon:'📅', color:'#c84df0', endpoint:'/study-plan',
+      fields: [
+        {key:'document',      label:'Learning Material', type:'textarea', placeholder:'Paste the content to study…'},
+        {key:'duration_days', label:'Duration (days)', type:'number', placeholder:'7'},
+      ],
+      buildBody: (v) => ({ document: v.document, duration_days: parseInt(v.duration_days||7) }) },
+    { id:'explain_code', name:'Explain Code', desc:'Understand any code', icon:'⚡', color:'#4d8af0', endpoint:'/explain-code',
+      fields: [{key:'code', label:'Code Snippet', type:'textarea', placeholder:'Paste your code here…'}],
+      buildBody: (v) => ({ code: v.code }) },
+  ];
+
+  function App() {
+    const [activeTask, setActiveTask] = useState(TASKS[0]);
+    const [values, setValues] = useState({});
+    const [loading, setLoading] = useState(false);
+    const [result, setResult] = useState(null);
+    const [error, setError] = useState(null);
+    const [copied, setCopied] = useState(false);
+    const [apiBase, setApiBase] = useState('http://localhost:8000');
+
+    const selectTask = (t) => { setActiveTask(t); setResult(null); setError(null); };
+
+    const setValue = (k, v) => setValues(prev => ({ ...prev, [k]: v }));
+
+    const run = async () => {
+      setLoading(true); setResult(null); setError(null);
+      try {
+        const body = activeTask.buildBody(values);
+        const res = await fetch(apiBase + activeTask.endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) { const d = await res.json(); throw new Error(d.detail || res.statusText); }
+        const data = await res.json();
+        setResult(data.result);
+      } catch (e) {
+        setError(e.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const copy = () => {
+      if (!result) return;
+      navigator.clipboard.writeText(result);
+      setCopied(true); setTimeout(() => setCopied(false), 2000);
+    };
+
+    return html`
+      <header>
+        <div class="logo">Gen<span>AI</span> Studio</div>
+        <span class="badge">LangChain · Groq · LLaMA 3.3</span>
+      </header>
+      <main>
+        <aside>
+          <div class="section-label">Tasks</div>
+          ${TASKS.map(t => html`
+            <button class=${'task-btn' + (activeTask.id===t.id ? ' active' : '')} onClick=${()=>selectTask(t)}>
+              <div class="icon" style=${'background:'+t.color+'18; color:'+t.color}>${t.icon}</div>
+              <div class="meta">
+                <div class="name">${t.name}</div>
+                <div class="desc">${t.desc}</div>
+              </div>
+            </button>
+          `)}
+        </aside>
+
+        <div class="panel">
+          <div class="panel-title">${activeTask.icon} <span>${activeTask.name}</span></div>
+
+          <!-- API base URL -->
+          <div class="api-bar">
+            <div class="api-dot"></div>
+            <span>API</span>
+            <input value=${apiBase} onInput=${e=>setApiBase(e.target.value)} />
+          </div>
+
+          <!-- Dynamic fields -->
+          ${activeTask.fields.map(f => html`
+            <div class="field" key=${f.key}>
+              <label>${f.label}</label>
+              ${f.type === 'textarea'
+                ? html`<textarea placeholder=${f.placeholder} value=${values[f.key]||''} onInput=${e=>setValue(f.key,e.target.value)} />`
+                : html`<input type=${f.type} placeholder=${f.placeholder} value=${values[f.key]||''} onInput=${e=>setValue(f.key,e.target.value)} />`
+              }
+            </div>
+          `)}
+
+          <div>
+            <button class="run-btn" onClick=${run} disabled=${loading}>
+              ${loading ? html`<div class="spinner"></div> Running…` : html`▶ Run ${activeTask.name}`}
+            </button>
+          </div>
+
+          ${error && html`<div class="error-box">⚠ ${error}</div>`}
+
+          ${loading && html`
+            <div class="loader">
+              <div class="spinner"></div>
+              Processing with LLaMA 3.3 via Groq…
+            </div>
+          `}
+
+          ${result && html`
+            <div class="result-wrap">
+              <div class="result-header">
+                <span class="result-label">Output · ${activeTask.name}</span>
+                <button class="copy-btn" onClick=${copy}>${copied ? '✓ Copied' : 'Copy'}</button>
+              </div>
+              <div class="result-body">${result}</div>
+            </div>
+          `}
+
+          ${!result && !loading && !error && html`
+            <div class="welcome">
+              <h3>How it works</h3>
+              <p>1. Select a task from the left sidebar.<br/>
+                 2. Paste your document, code, or text.<br/>
+                 3. Hit <strong>Run</strong> — your FastAPI backend calls Groq and streams the result back.</p>
+            </div>
+          `}
+        </div>
+      </main>
+    `;
+  }
+
+  render(html`<${App}/>`, document.getElementById('root'));
+</script>
+</body>
+</html>
